@@ -6,15 +6,41 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"regexp"
+	"bufio"
 )
 
+var DEBUG bool
+
 func Output(msg string) {
-	//if DEBUG {
-	fmt.Println(msg)
-	//}
+	if DEBUG {
+		fmt.Println(msg)
+	}
 }
 
 var VarNameMatcher = regexp.MustCompile("@.*?@")
+
+//Ask user for input
+func Ask(step *Step, reader *bufio.Reader) Input {
+	for {
+		//setDefaultValue(step)
+
+		prompt := step.Input.Prompt
+		if len(step.Input.DefaultValue) != 0 {
+			prompt = prompt + " " + step.Input.DefaultValue + " "
+		}
+
+		fmt.Print("\n", prompt)
+		text, _ := reader.ReadString('\n')
+		text = strings.TrimSpace(text)
+
+		input := CreateInput(step, text)
+		if input != nil && input.IsValid() {
+			return input
+		}
+	}
+
+	return nil
+}
 
 //Evaluate if a step should be executed
 func Eval(conditionStr string, installVarMap map[string]string) bool {
