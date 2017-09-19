@@ -111,3 +111,21 @@ func HandleCopyAction(objMap map[string]*json.RawMessage, installVarMap map[stri
 func GetVar(str string) string {
 	return VarNameMatcher.FindString(str)
 }
+
+func CreateInput(step *Step, inputString string) Input {
+	if step.Input.Type == "dir" {
+		return DirInput{Value: strings.Replace(inputString, "\\", "/", -1)}
+	} else if step.Input.Type == "select" {
+		values := strings.Split(step.Input.Values, ",")
+		return SelectInput{Value: inputString, Values: values}
+	} else if step.Input.Type == "string" {
+		return StringInput{Value: inputString, DefaultValue: step.Input.DefaultValue}
+	} else if step.Input.Type == "int" {
+		return IntegerInput{Value: inputString, DefaultValue: step.Input.DefaultValue}
+	} else if step.Input.Type == "bool" {
+		return BoolInput{Value: inputString}
+	} else if step.Input.Type == "file" {
+		return FileInput{Value: strings.Replace(inputString, "\\", "/", -1)}
+	}
+	return nil
+}
