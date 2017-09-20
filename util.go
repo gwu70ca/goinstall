@@ -17,12 +17,64 @@ func Output(msg string) {
 	}
 }
 
+//Keep all the variables
+var InstallVarMap map[string]string
+//User defined functions
+var InstallFuncMap map[string]interface{}
+
 var VarNameMatcher = regexp.MustCompile("@.*?@")
+
+func Install(steps []Step, reader *bufio.Reader) {
+	for _, step := range steps {
+		Output(fmt.Sprintf("\nstep %v, enabled: %d", step.Name, step.Enabled))
+
+		if step.Enabled == 0 {
+			continue
+		}
+
+		//only execute the step if condition met
+		if step.Condition != "" && !Eval(step.Condition, InstallVarMap) {
+			continue
+		}
+
+		if step.Category == "input" {
+			f := InstallFuncMap[step.Name]
+			if f != nil {
+				Output(fmt.Sprintf("used defined function: %v", f))
+				f.(func(*InstallInput, string, bool))(&step.Input, "", true)
+			}
+
+			//Ask user for input
+			input := Ask(&step, reader)
+			var inputValue string
+			if input != nil {
+				inputValue = input.GetValue()
+			}
+			if inputValue == "" {
+				inputValue = step.Input.DefaultValue
+			}
+
+			Output(fmt.Sprintf("Input value: %s", inputValue))
+
+			//Set global variable
+			if step.Var != "" {
+				Output(fmt.Sprintf("install variable: %s", step.Var))
+				InstallVarMap[step.Var] = inputValue
+			}
+
+			if f != nil {
+				f.(func(*InstallInput, string, bool))(&step.Input, inputValue, false)
+			}
+		} else if step.Category == "action" {
+			run(&step)
+		}
+	}
+}
 
 //Ask user for input
 func Ask(step *Step, reader *bufio.Reader) Input {
 	for {
-		//setDefaultValue(step)
+		fmt.Println("Default value:" + step.Input.DefaultValue)
 
 		prompt := step.Input.Prompt
 		if len(step.Input.DefaultValue) != 0 {
@@ -42,9 +94,26 @@ func Ask(step *Step, reader *bufio.Reader) Input {
 	return nil
 }
 
+func run(step *Step) string {
+	fmt.Println("run the action: ", step.Name)
+
+	actionType, objMap := GetActionType(step)
+	if actionType == "copy_file" {
+		HandleCopyAction(objMap, InstallVarMap)
+		//TODO return or continue?
+	} else if actionType == "custom" {
+		f := InstallFuncMap[step.Name]
+		if f != nil {
+			Output(fmt.Sprintf("used defined function: %v", f))
+			f.(func())()
+		}
+	}
+	return ""
+}
+
 //Evaluate if a step should be executed
 func Eval(conditionStr string, installVarMap map[string]string) bool {
-	Output(fmt.Sprintf("condition:%v", conditionStr))
+	Output(fmt.Sprintf("\tcondition:%v", conditionStr))
 
 	//TODO eval '||' and '()'
 	yes := true
@@ -58,7 +127,7 @@ func Eval(conditionStr string, installVarMap map[string]string) bool {
 
 		yes = yes && op.Eval(condition, installVarMap)
 		if !yes {
-			Output("condition does not meet")
+			Output("\tcondition does not meet")
 			break
 		}
 	}
