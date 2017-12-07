@@ -60,6 +60,27 @@ func (copy CopyAction) Run() (bool, error) {
 	return true, nil
 }
 
+type MoveAction struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+func (move MoveAction) Run() (bool, error) {
+	Output(fmt.Sprintf("copying from \n\t%v \n\tto\n\t%v", move.Source, move.Target))
+	data, err := ioutil.ReadFile(move.Source)
+	if err != nil {
+		Output(fmt.Sprintf("Failed to read file %v", move.Source))
+		return false, err
+	}
+
+	if err = ioutil.WriteFile(move.Target, data, 0774); err != nil {
+		Output(fmt.Sprintf("Failed to read file %v", move.Target))
+		return false, err
+	}
+	//TODO delete the original file
+	return true, nil
+}
+
 //Installer runs one step a time
 func (s Step) String() string {
 	return fmt.Sprintf("#%d, category: %s, type: %s, values: %s\nprompt: %s", s.Seq, s.Category, s.Input.Type, s.Input.Values, s.Input.Prompt)
@@ -83,7 +104,7 @@ func (eq Equals) Eval(condition string, installVarMap map[string]string) bool {
 	varExpectedValue := ss[1]
 
 	Output(fmt.Sprintf("EQ: varName: %v, varValue:%v, expected: %s", varName, varValue, varExpectedValue))
-	return varValue == "" || varValue == varExpectedValue
+	return varValue == varExpectedValue
 }
 
 func (ne NotEqual) Eval(condition string, installVarMap map[string]string) bool {
@@ -93,5 +114,6 @@ func (ne NotEqual) Eval(condition string, installVarMap map[string]string) bool 
 	varExpectedValue := ss[1]
 
 	Output(fmt.Sprintf("NE: varName: %v, varValue:%v, expected: %s", varName, varValue, varExpectedValue))
-	return varValue != varExpectedValue
+
+	return varValue == "" || varValue != varExpectedValue
 }
